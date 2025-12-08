@@ -18,3 +18,35 @@ This implementation utilizes Google's SigLIP (Sigmoid Loss for Language Image Pr
 - Demonstrate SigLIP Superiority: Utilize the Shape-Optimized (so400m) SigLIP model to showcase improved handling of edge cases compared to softmax-based CLIP models.
 
 - Scalable Vector Search: Implement a retrieval architecture that can scan the Unsplash Lite dataset (25k+ high-quality images) in milliseconds.
+
+
+## Dataset Setup
+
+1.  **Download**: Go to [Unsplash Lite Dataset](https://unsplash.com/data/lite/latest) and download the dataset.
+2.  **Extract**: Extract the images into the `assets/` directory.
+    *   Note: The Unsplash Lite dataset provides URLs. It will need a script to download the actual images. For that, this project provides a script `download_images.py`.
+
+## System Architecture
+
+```mermaid
+graph TD
+    User[User] -->|Text Query/Prompt| Frontend[Streamlit App]
+    
+    subgraph "Core Logic"
+        Frontend -->|Get Embedding| Model[Model Loader - SigLIP]
+        Frontend -->|Search| Indexer[Indexer - Pinecone Client]
+    end
+    
+    subgraph "Data Pipeline"
+        Script[ingest_and_index.py] -->|Load Images| Assets[assets/image-dataset]
+        Script -->|Generate Embeddings| Model
+        Script -->|Upsert Vectors| DB[(Pinecone Vector DB)]
+    end
+    
+    Indexer -->|Query| DB
+
+    DB -->|Results| Indexer
+    Indexer -->|Top-K Matches| Frontend
+    Frontend[Streamlit App] -->| View Images| User[User]
+    Assets -.->|Read Image File| Frontend
+```
