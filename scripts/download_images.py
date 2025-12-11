@@ -4,7 +4,7 @@ import requests
 from tqdm import tqdm
 import argparse
 
-def download_images(csv_path, output_dir, limit=10000):
+def download_images(csv_path, output_dir, limit=10000, start_index=0):
     """
     Download images from Unsplash Lite dataset CSV.
     
@@ -12,6 +12,7 @@ def download_images(csv_path, output_dir, limit=10000):
         csv_path (str): Path to the photos.csv000 file.
         output_dir (str): Directory to save images.
         limit (int): Maximum number of images to download.
+        start_index (int): Index to start downloading from.
     """
     if not os.path.exists(csv_path):
         print(f"Error: CSV file not found at {csv_path}")
@@ -27,7 +28,12 @@ def download_images(csv_path, output_dir, limit=10000):
         print(f"Error reading CSV: {e}")
         return
 
-    print(f"Found {len(df)} images in dataset. Downloading top {limit}...")
+    # Slice the dataframe to start from start_index
+    if start_index > 0:
+        print(f"Starting from index {start_index}...")
+        df = df.iloc[start_index:]
+
+    print(f"Found {len(df)} images to process. Downloading top {limit}...")
 
     success_count = 0
     
@@ -68,8 +74,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download images from Unsplash Lite dataset.")
     parser.add_argument("--csv", type=str, default="assets/unsplash-research-dataset-lite-latest/photos.csv000", help="Path to the photos CSV file.")
     parser.add_argument("--output", type=str, default="assets/image-dataset", help="Directory to save images.")
-    parser.add_argument("--limit", type=int, default=50, help="Number of images to download.")
+    
+    # Temporary defaults downloads the next n images  as requested by user
+    #hardcoded for now as I have already donwloaded 11000 images and might want to download next n images to add more dataset.
+    parser.add_argument("--limit", type=int, default=2000, help="Number of images to download.") 
+    parser.add_argument("--start_index", type=int, default=11000, help="Index to start downloading from.")
     
     args = parser.parse_args()
     
-    download_images(args.csv, args.output, args.limit)
+    # temporary default to have start_index = 11000 and limit = 2000
+    download_images(args.csv, args.output, args.limit, args.start_index)
