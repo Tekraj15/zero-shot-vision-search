@@ -40,7 +40,7 @@ class ModelLoader:
         model_name = "google/siglip-so400m-patch14-384"
         
         self.model = AutoModel.from_pretrained(model_name).to(self.device)
-        self.processor = AutoProcessor.from_pretrained(model_name)
+        self.processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
         print("Model loaded successfully.")
 
     def get_image_embedding(self, image_path):
