@@ -78,6 +78,18 @@ class Indexer:
         """
         return self.index.query(vector=vector, top_k=top_k, include_metadata=True)
 
+    def fetch_vectors(self, ids):
+        """
+        Fetch vectors by ID to check existence.
+        
+        Args:
+            ids (list): List of vector IDs.
+            
+        Returns:
+            dict: Dictionary containing the fetched vectors.
+        """
+        return self.index.fetch(ids=ids)
+
     def delete_index(self):
         """Delete the index."""
         if self.index_name in self.pc.list_indexes().names():
