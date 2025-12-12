@@ -46,7 +46,6 @@ def main():
     print(f"Generating embeddings and upserting in batches of {batch_size}...")
     
     # Pre-calculate Deterministic IDs and check existence in chunks
-    
     total_skipped = 0
     total_processed = 0
     
@@ -106,8 +105,6 @@ def main():
     print(f"Processing complete. Processed: {total_processed}, Skipped: {total_skipped}")
     
     # Save local data (merge with existing if possible, but for now just saving what we processed)
-    # Note: This overwrites local metadata.json with ONLY the new items if we don't load existing first.
-    # Ideally we should load existing metadata.
     if os.path.exists(metadata_path):
         import json
         try:
