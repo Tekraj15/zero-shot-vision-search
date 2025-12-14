@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.model_loader import ModelLoader
 from src.vector_indexer import Indexer
+from src.ranker import Ranker
 
 def evaluate(sample_size=100):
     # Configuration
@@ -26,6 +27,8 @@ def evaluate(sample_size=100):
     print("Initializing components...")
     model_loader = ModelLoader()
     indexer = Indexer()
+    print("Loading Ranker...")
+    ranker = Ranker()
     
     print(f"Reading metadata from {csv_path}...")
     
@@ -78,11 +81,8 @@ def evaluate(sample_size=100):
     recall_at_10 = 0
     mrr_sum = 0
     
-    from src.ranker import Ranker
-    print("Loading Ranker...")
-    ranker = Ranker()
-    
-    print("Running evaluation with Re-ranking...")
+    print("Running evaluation with Re-ranking...") 
+
     for row in tqdm(sample_rows):
         photo_id = row['photo_id']
         query_text = row['used_description']
@@ -94,57 +94,29 @@ def evaluate(sample_size=100):
             continue
             
         # Search Pinecone (Fetch top 50 for re-ranking)
-        results = indexer.search(text_embedding, top_k=50)
-        
-        # Prepare candidates for re-ranking
-        candidates = []
-        if results and results['matches']:
-            for match in results['matches']:
-                # Extract photo_id from filename in metadata
-                filename = match['metadata'].get('filename', '')
-                pid = os.path.splitext(filename)[0]
-            
-
-                pass 
-
-    # Build a lookup dictionary for descriptions
-    # The initial read filtered for available images, so no need to read the CSV again.
-    desc_lookup = {row['photo_id']: row['used_description'] for row in valid_rows}
-
-    for row in tqdm(sample_rows):
-        photo_id = row['photo_id']
-        query_text = row['used_description']
-            
-        # Generate embedding for the query
-        text_embedding = model_loader.get_text_embedding(query_text)
-        
-        if not text_embedding:
-            continue
-            
-        # Search Pinecone (Fetch top 100 for re-ranking)
-        results = indexer.search(text_embedding, top_k=100)
+        results = indexer.search(text_embedding, top_k=80)
         
         candidates = []
         if results and results['matches']:
             for match in results['matches']:
-                filename = match['metadata'].get('filename', '')
-                pid = os.path.splitext(filename)[0]
+                meta = match['metadata']
+                # Resolve image path
+                img_path = os.path.join(assets_dir, os.path.basename(meta['path']))
                 
-                # Get description
-                description = desc_lookup.get(pid, "")
+                # Fallback if path construction is wrong, try to find it in assets_dir
+                if not os.path.exists(img_path):
+                     # Try to find by filename in assets_dir
+                     fname = meta.get('filename')
+                     if fname:
+                         img_path = os.path.join(assets_dir, fname)
                 
-                # If no description found (maybe image wasn't in our CSV filter), use empty string or placeholder.
-                # But re-ranking against empty string is useless.
-                # For now, let's assume we have descriptions for most.
-                
-                # Future Work: Handle this case better.
-                
-                candidates.append({
-                    'id': match['id'],
-                    'text': description,
-                    'metadata': match['metadata'],
-                    'original_score': match['score']
-                })
+                if os.path.exists(img_path):
+                    candidates.append({
+                        'id': match['id'],
+                        'image_path': img_path,
+                        'metadata': match['metadata'],
+                        'original_score': match['score']
+                    })
         
         # Re-rank
         ranked_results = ranker.rank(query_text, candidates, top_k=10)
