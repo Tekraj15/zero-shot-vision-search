@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from src.model_loader import ModelLoader
 from src.vector_indexer import Indexer
+from src.ranker import Ranker
 
 # Page Config
 st.set_page_config(
@@ -45,7 +46,7 @@ st.markdown("""
 
 @st.cache_resource
 def load_components():
-    return ModelLoader(), Indexer()
+    return ModelLoader(), Indexer(), Ranker()
 
 def main():
     st.title("🔍 Vision Scout")
@@ -53,10 +54,30 @@ def main():
     
     # Load components
     try:
-        model_loader, indexer = load_components()
+        model_loader, indexer, ranker = load_components()
     except Exception as e:
         st.error(f"Error loading components: {e}")
         st.stop()
+        
+    # Load descriptions for re-ranking
+    @st.cache_resource
+    def load_descriptions():
+        csv_path = os.path.join(os.path.dirname(__file__), 'assets/unsplash-research-dataset-lite-latest/photos.csv000')
+        desc_map = {}
+        if os.path.exists(csv_path):
+            import csv
+            try:
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f, delimiter='\t')
+                    for row in reader:
+                        desc = row.get('ai_description') or row.get('photo_description')
+                        if desc:
+                            desc_map[row['photo_id']] = desc
+            except Exception as e:
+                st.error(f"Error loading descriptions: {e}")
+        return desc_map
+
+    desc_map = load_descriptions()
         
     # Search Bar
     query = st.text_input("Describe what you're looking for...", placeholder="e.g., 'a futuristic city at night' or 'a happy dog running'")
@@ -67,27 +88,42 @@ def main():
             text_embedding = model_loader.get_text_embedding(query)
             
             if text_embedding:
-                # Search Pinecone
-                results = indexer.search(text_embedding, top_k=12)
+                # Search Pinecone (Fetch top 50 for re-ranking)
+                results = indexer.search(text_embedding, top_k=50)
                 
                 if results and results['matches']:
-                    st.markdown(f"Found **{len(results['matches'])}** matches for *'{query}'*")
+                    # Prepare candidates for re-ranking
+                    candidates = []
+                    for match in results['matches']:
+                        filename = match['metadata'].get('filename', '')
+                        pid = os.path.splitext(filename)[0]
+                        description = desc_map.get(pid, "")
+                        
+                        candidates.append({
+                            'id': match['id'],
+                            'text': description,
+                            'metadata': match['metadata'],
+                            'original_score': match['score']
+                        })
+                    
+                    # Re-rank
+                    ranked_results = ranker.rank(query, candidates, top_k=12)
+                    
+                    st.markdown(f"Found **{len(ranked_results)}** matches for *'{query}'* (Re-ranked from top 50)")
                     
                     # Display results in a grid
                     cols = st.columns(3)
-                    for idx, match in enumerate(results['matches']):
+                    for idx, match in enumerate(ranked_results):
                         meta = match['metadata']
                         score = match['score']
                         
                         # Resolve image path
-                        # Assuming assets are in the root assets/ folder relative to app.py
-                        # The metadata path is relative like 'assets/image.jpg'
                         img_path = os.path.join(os.path.dirname(__file__), meta['path'])
                         
                         with cols[idx % 3]:
                             if os.path.exists(img_path):
                                 image = Image.open(img_path)
-                                st.image(image, use_container_width=True, caption=f"Score: {score:.2f}")
+                                st.image(image, width="stretch", caption=f"Score: {score:.2f}")
                             else:
                                 st.warning(f"Image not found: {meta['path']}")
                 else:
