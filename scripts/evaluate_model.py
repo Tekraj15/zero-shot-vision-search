@@ -81,7 +81,9 @@ def evaluate(sample_size=100):
     recall_at_10 = 0
     mrr_sum = 0
     
-    print("Running evaluation with Re-ranking...") 
+    # Build a lookup dictionary for descriptions
+    # The initial read filtered for available images, so no need to read the CSV again.
+    desc_lookup = {row['photo_id']: row['used_description'] for row in valid_rows}
 
     for row in tqdm(sample_rows):
         photo_id = row['photo_id']
@@ -94,29 +96,23 @@ def evaluate(sample_size=100):
             continue
             
         # Search Pinecone (Fetch top 50 for re-ranking)
-        results = indexer.search(text_embedding, top_k=80)
+        results = indexer.search(text_embedding, top_k=100)
         
         candidates = []
         if results and results['matches']:
             for match in results['matches']:
-                meta = match['metadata']
-                # Resolve image path
-                img_path = os.path.join(assets_dir, os.path.basename(meta['path']))
+                filename = match['metadata'].get('filename', '')
+                pid = os.path.splitext(filename)[0]
                 
-                # Fallback if path construction is wrong, try to find it in assets_dir
-                if not os.path.exists(img_path):
-                     # Try to find by filename in assets_dir
-                     fname = meta.get('filename')
-                     if fname:
-                         img_path = os.path.join(assets_dir, fname)
+                # Get description
+                description = desc_lookup.get(pid, "")
                 
-                if os.path.exists(img_path):
-                    candidates.append({
-                        'id': match['id'],
-                        'image_path': img_path,
-                        'metadata': match['metadata'],
-                        'original_score': match['score']
-                    })
+                candidates.append({
+                    'id': match['id'],
+                    'text': description,
+                    'metadata': match['metadata'],
+                    'original_score': match['score']
+                })
         
         # Re-rank
         ranked_results = ranker.rank(query_text, candidates, top_k=10)
