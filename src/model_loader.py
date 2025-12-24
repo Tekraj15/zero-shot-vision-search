@@ -39,7 +39,7 @@ class ModelLoader:
         print(f"Loading SigLIP model on {self.device}...")
         model_name = "google/siglip-so400m-patch14-384"
         
-        self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        self.model = AutoModel.from_pretrained(model_name, use_safetensors=True).to(self.device)
         self.processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
         print("Model loaded successfully.")
 
