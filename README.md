@@ -50,3 +50,53 @@ graph TD
     Frontend[Streamlit App] -->| View Images| User[User]
     Assets -.->|Read Image File| Frontend
 ```
+
+## Methodology
+
+The Zero-Shot Vision Search pipeline consists of the following key steps:
+
+1. **Image Collection & Preparation**
+   - Download the Unsplash Lite dataset and extract images into the `assets/image-dataset/` directory.
+   - Use the provided `download_images.py` script to automate image downloading if needed.
+   - Store image metadata (e.g., URLs, captions, IDs) in `data/metadata.json` for efficient lookup.
+
+2. **Embedding Generation**
+   - Use the SigLIP (siglip-so400m-patch14-384) model to encode both images and text queries into a shared vector space.
+   - For each image, generate a fixed-length embedding vector and store it for indexing.
+   - Text queries from users are also converted into embedding vectors using the same model, ensuring semantic alignment.
+
+3. **Vector Indexing**
+   - Utilize Pinecone (or a similar vector database) to index all image embeddings.
+   - The `ingest_and_index.py` script handles batch upserting of image vectors into the database.
+   - The index supports efficient similarity search (e.g., cosine or dot-product) for large-scale datasets.
+
+4. **Semantic Search & Ranking**
+   - When a user submits a text query, the system computes its embedding and queries the vector database for the most similar image vectors.
+   - The `ranker.py` module retrieves the top-K matches based on similarity scores.
+   - Results are re-ranked using cross-encoder/ms-marco-MiniLM-L-6-v2 model to improve relevance (e.g., using additional metadata or heuristics).
+   - **Mathematical Concept:**
+     - Both images and text queries are encoded as high-dimensional vectors (embeddings) in ℝⁿ using the SigLIP model:  
+       \( \mathbf{v}_{\text{image}} \in \mathbb{R}^n \), \( \mathbf{v}_{\text{text}} \in \mathbb{R}^n \)
+     - Semantic similarity between a query and an image is computed using cosine similarity:  
+       \( \text{sim}(\mathbf{v}_{\text{text}}, \mathbf{v}_{\text{image}}) = \frac{\mathbf{v}_{\text{text}} \cdot \mathbf{v}_{\text{image}}}{\|\mathbf{v}_{\text{text}}\| \|\mathbf{v}_{\text{image}}\|} \)
+     - Alternatively, dot product similarity can be used:  
+       \( \text{sim}(\mathbf{v}_{\text{text}}, \mathbf{v}_{\text{image}}) = \mathbf{v}_{\text{text}} \cdot \mathbf{v}_{\text{image}} \)
+     - For top-K retrieval, all image vectors are ranked by their similarity scores to the query vector, and the K highest-scoring images are returned:  
+       \( \text{Top-K} = \text{argsort}_K\left(\text{sim}(\mathbf{v}_{\text{text}}, \mathbf{v}_{\text{image}_i})\right) \)
+
+5. **Frontend Visualization**
+   - The Streamlit app provides an interactive interface for users to enter queries and view results.
+   - Top-K matching images are displayed along with their metadata.
+   - The app reads image files directly from the `assets/image-dataset/` directory for fast rendering.
+
+6. **Zero-Shot Capability**
+   - The system does not require retraining for new concepts; any text prompt can be used to search for semantically relevant images.
+   - This is enabled by the contrastive learning approach of SigLIP, which aligns visual and textual modalities in a unified space.
+
+## Results
+
+The following image demonstrates the effectiveness of the Zero-Shot Vision Search engine in retrieving semantically relevant images for a given text query:
+
+![Zero-Shot Vision Search Result](assets/zero-shot-vision-search-result.png)
+
+*Figure: Example of top-K image retrieval results for a natural language query using the SigLIP-powered search engine.*
