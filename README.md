@@ -70,19 +70,47 @@ The Zero-Shot Vision Search pipeline consists of the following key steps:
    - The `ingest_and_index.py` script handles batch upserting of image vectors into the database.
    - The index supports efficient similarity search (e.g., cosine or dot-product) for large-scale datasets.
 
-4. **Semantic Search & Ranking**
-   - When a user submits a text query, the system computes its embedding and queries the vector database for the most similar image vectors.
-   - The `ranker.py` module retrieves the top-K matches based on similarity scores.
-   - Results are re-ranked using cross-encoder/ms-marco-MiniLM-L-6-v2 model to improve relevance (e.g., using additional metadata or heuristics).
-   - **Mathematical Concept:**
-     - Both images and text queries are encoded as high-dimensional vectors (embeddings) in R^n using the SigLIP model:
-       - `v_image ∈ R^n`, `v_text ∈ R^n`
-     - Semantic similarity between a query and an image is computed using cosine similarity:
-       - `sim(v_text, v_image) = (v_text · v_image) / (||v_text|| * ||v_image||)`
-     - Alternatively, dot product similarity can be used:
-       - `sim(v_text, v_image) = v_text · v_image`
-     - For top-K retrieval, all image vectors are ranked by their similarity scores to the query vector, and the K highest-scoring images are returned:
-       - `Top-K = argsort_K(sim(v_text, v_image_j))`
+
+## 4. Semantic Search & Ranking
+
+- When a user submits a text query, the system computes its embedding and queries the vector database for the most similar image vectors.
+- The `ranker.py` module retrieves the top-K matches based on similarity scores.
+- Results are re-ranked using the `cross-encoder/ms-marco-MiniLM-L-6-v2` model to improve relevance (e.g., using additional metadata or heuristics).
+
+### Mathematical Concept
+
+```markdown
+Both images and text queries are encoded as high-dimensional vectors (embeddings) in $\mathbb{R}^n$ using the SigLIP model:
+
+- $v_{image} \in \mathbb{R}^n$
+- $v_{text} \in \mathbb{R}^n$
+
+Semantic similarity between a query and an image is computed using cosine similarity:
+
+$$
+\mathrm{sim}(v_{text}, v_{image})
+= \frac{v_{text} \cdot v_{image}}{\|v_{text}\| \, \|v_{image}\|}
+$$
+
+Alternatively, dot-product similarity can be used:
+
+$$
+\mathrm{sim}(v_{text}, v_{image}) = v_{text} \cdot v_{image}
+$$
+
+For top-K retrieval, similarity scores are computed between the query vector and each image vector:
+
+$$
+s_j = \mathrm{sim}(v_{text}, v_{image_j}), \quad j = 1, \dots, N
+$$
+
+The top-K images are then selected as:
+
+$$
+\text{Top-K} = \operatorname{argsort}_K(s_j)
+$$
+
+```markdown
 
 5. **Frontend Visualization**
    - The Streamlit app provides an interactive interface for users to enter queries and view results.
@@ -92,6 +120,14 @@ The Zero-Shot Vision Search pipeline consists of the following key steps:
 6. **Zero-Shot Capability**
    - The system does not require retraining for new concepts; any text prompt can be used to search for semantically relevant images.
    - This is enabled by the contrastive learning approach of SigLIP, which aligns visual and textual modalities in a unified space.
+
+
+## Model Evaluation Metrics
+Below are the metrics for the model evaluation on Unsplash Lite dataset(15k images):
+
+![Zero-Shot Vision Search Metrics](assets/model_eval_metrics.png)
+
+
 
 ## Results
 
